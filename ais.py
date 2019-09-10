@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 import numpy as np
-from tqdm import tqdm
+#from tqdm import tqdm
 
 import torch
 from torch.autograd import grad as torchgrad
@@ -63,7 +63,8 @@ def ais_trajectory(model,
       current_z = utils.safe_repeat(post_z, n_sample).to(device)
     current_z = current_z.requires_grad_()
 
-    for j, (t0, t1) in tqdm(enumerate(zip(schedule[:-1], schedule[1:]), 1)):
+    #for j, (t0, t1) in tqdm(enumerate(zip(schedule[:-1], schedule[1:]), 1)):
+    for j, (t0, t1) in enumerate(zip(schedule[:-1], schedule[1:]), 1):
       # update log importance weight
       log_int_1 = log_f_i(current_z, batch, t0)
       log_int_2 = log_f_i(current_z, batch, t1)

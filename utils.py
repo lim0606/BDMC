@@ -63,6 +63,9 @@ def log_bernoulli(logit, target):
   Returns:
       output:      [B]
   """
+  B = logit.size(0)
+  logit = logit.view(B, -1)
+  target = target.view(B, -1)
 
   loss = -F.relu(logit) + torch.mul(target, logit) - \
       torch.log(1. + torch.exp(-logit.abs()))
