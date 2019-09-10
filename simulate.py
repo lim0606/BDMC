@@ -7,7 +7,7 @@ from torch.autograd import Variable
 from torch.distributions import Bernoulli
 
 
-def simulate_data(model, batch_size=10, n_batch=1):
+def simulate_data(model, batch_size=10, n_batch=1, device=torch.device("cpu")):
   """Simulate data from the VAE model. Sample from the 
   joint distribution p(z)p(x|z). This is equivalent to
   sampling from p(x)p(z|x), i.e. z is from the posterior.
@@ -29,7 +29,7 @@ def simulate_data(model, batch_size=10, n_batch=1):
   batches = []
   for i in range(n_batch):
     # assume prior for VAE is unit Gaussian
-    z = torch.randn(batch_size, model.latent_dim).cuda()
+    z = torch.randn(batch_size, model.latent_dim).to(device)
     x_logits = model.decode(z)
     if isinstance(x_logits, tuple):
       x_logits = x_logits[0]

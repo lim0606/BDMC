@@ -32,7 +32,9 @@ def accept_reject(current_z, current_v,
                   z, v,
                   epsilon,
                   accept_hist, hist_len,
-                  U, K=lambda v: torch.sum(v * v, 1)):
+                  U, K=lambda v: torch.sum(v * v, 1),
+                  device=torch.device("cpu"),
+                  ):
   """Accept/reject based on Hamiltonians for current and propose.
 
   Args:
@@ -50,12 +52,12 @@ def accept_reject(current_z, current_v,
   prob = torch.exp(current_Hamil - propose_Hamil)
 
   with torch.no_grad():
-    uniform_sample = torch.rand(prob.size()).cuda()
-    accept = (prob > uniform_sample).float().cuda()
+    uniform_sample = torch.rand(prob.size()).to(device)
+    accept = (prob > uniform_sample).float().to(device)
     z = z.mul(accept.view(-1, 1)) + current_z.mul(1. - accept.view(-1, 1))
 
     accept_hist = accept_hist.add(accept)
-    criteria = (accept_hist / hist_len > 0.65).float().cuda()
+    criteria = (accept_hist / hist_len > 0.65).float().to(device)
     adapt = 1.02 * criteria + 0.98 * (1. - criteria)
     epsilon = epsilon.mul(adapt).clamp(1e-4, .5)
 

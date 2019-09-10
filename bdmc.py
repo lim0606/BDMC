@@ -28,7 +28,7 @@ parser.add_argument('--ckpt-path', type=str, default='checkpoints/model.pth',
 args = parser.parse_args()
 
 
-def bdmc(model, loader, forward_schedule, n_sample):
+def bdmc(model, loader, forward_schedule, n_sample, device=torch.device("cpu")):
   """Bidirectional Monte Carlo. Backward schedule is set to be the reverse of
   the forward schedule.
 
@@ -52,7 +52,9 @@ def bdmc(model, loader, forward_schedule, n_sample):
       load,
       forward=True,
       schedule=forward_schedule,
-      n_sample=n_sample)
+      n_sample=n_sample,
+      device=device,
+      )
 
   # backward chain
   backward_schedule = np.flip(forward_schedule, axis=0)
@@ -61,7 +63,9 @@ def bdmc(model, loader, forward_schedule, n_sample):
       load_,
       forward=False,
       schedule=backward_schedule,
-      n_sample=n_sample)
+      n_sample=n_sample,
+      device=device,
+      )
 
   upper_bounds = []
   lower_bounds = []
@@ -80,23 +84,29 @@ def bdmc(model, loader, forward_schedule, n_sample):
 
 
 def main():
+  device = torch.device("cpu")
   model = vae.VAE(latent_dim=args.latent_dim)
-  model.cuda()
-  model.load_state_dict(torch.load(args.ckpt_path)['state_dict'])
+  model.to(device)
+  model.load_state_dict(torch.load(args.ckpt_path, map_location=device)['state_dict'])
   model.eval()
+  print(model)
 
   # bdmc uses simulated data from the model
   loader = simulate.simulate_data(
       model,
       batch_size=args.batch_size,
-      n_batch=args.n_batch)
+      n_batch=args.n_batch,
+      device=device,
+      )
   # run bdmc
   forward_schedule = np.linspace(0., 1., args.chain_length)
   bdmc(
       model,
       loader,
       forward_schedule=forward_schedule,
-      n_sample=args.iwae_samples)
+      n_sample=args.iwae_samples,
+      device=device,
+      )
 
 
 if __name__ == '__main__':
