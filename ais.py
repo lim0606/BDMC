@@ -5,8 +5,8 @@ from tqdm import tqdm
 
 import torch
 from torch.autograd import grad as torchgrad
-import hmc
-import utils
+from . import hmc
+from . import utils
 
 
 def ais_trajectory(model,
@@ -39,7 +39,8 @@ def ais_trajectory(model,
     """
     zeros = torch.zeros(B, model.latent_dim).to(device)
     log_prior = utils.log_normal(z, zeros, zeros)
-    log_likelihood = log_likelihood_fn(model.decode(z), data)
+    _, x_logits = model.decode(z)
+    log_likelihood = log_likelihood_fn(x_logits, data)
 
     return log_prior + log_likelihood.mul_(t)
 

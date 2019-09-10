@@ -30,7 +30,7 @@ def simulate_data(model, batch_size=10, n_batch=1, device=torch.device("cpu")):
   for i in range(n_batch):
     # assume prior for VAE is unit Gaussian
     z = torch.randn(batch_size, model.latent_dim).to(device)
-    x_logits = model.decode(z)
+    _, x_logits = model.decode(z)
     if isinstance(x_logits, tuple):
       x_logits = x_logits[0]
     x_bernoulli_dist = Bernoulli(probs=x_logits.sigmoid())

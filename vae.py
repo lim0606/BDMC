@@ -43,14 +43,14 @@ class VAE(nn.Module):
   def decode(self, net):
     net = self.act_fn(self.fc4(net))
     net = self.act_fn(self.fc5(net))
-    return self.fc6(net)
+    return None, self.fc6(net)
 
   def forward(self, x, k=1, warmup_const=1.):
 
     x = x.repeat(k, 1)
     mu, logvar = self.encode(x)
     z, logpz, logqz = self.sample(mu, logvar)
-    x_logits = self.decode(z)
+    _, x_logits = self.decode(z)
 
     logpx = utils.log_bernoulli(x_logits, x)
     elbo = logpx + logpz - warmup_const * logqz
