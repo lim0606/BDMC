@@ -40,6 +40,7 @@ def ais_trajectory(model,
     zeros = torch.zeros(B, model.latent_dim).to(device)
     log_prior = utils.log_normal(z, zeros, zeros)
     _, x_logits = model.decode(z)
+    x_logits = x_logits.detach()
     log_likelihood = log_likelihood_fn(x_logits, data)
 
     return log_prior + log_likelihood.mul_(t)
@@ -99,7 +100,7 @@ def ais_trajectory(model,
           device=device,
           )
 
-    logw = utils.log_mean_exp(logw.view(n_sample, -1).transpose(0, 1))
+    logw = utils.log_mean_exp(logw.view(n_sample, -1).transpose(0, 1)).detach()
     if not forward:
       logw = -logw
     logws.append(logw.data)
