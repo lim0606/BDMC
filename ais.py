@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 import numpy as np
-#from tqdm import tqdm
+from tqdm import tqdm
 
 import torch
 from torch.autograd import grad as torchgrad
@@ -14,7 +14,9 @@ def ais_trajectory(model,
                    forward=True,
                    schedule=np.linspace(0., 1., 500),
                    n_sample=100,
+                   log_likelihood_fn='bernoulli',
                    device=torch.device("cpu"),
+                   _epsilon=0.01,
                    ):
   """Compute annealed importance sampling trajectories for a batch of data. 
   Could be used for *both* forward and reverse chain in BDMC.
@@ -32,27 +34,41 @@ def ais_trajectory(model,
       log importance weights for a single batch of data
   """
 
-  def log_f_i(z, data, t, log_likelihood_fn=utils.log_bernoulli):
-    """Unnormalized density for intermediate distribution `f_i`:
-        f_i = p(z)^(1-t) p(x,z)^(t) = p(z) p(x|z)^t
-    =>  log f_i = log p(z) + t * log p(x|z)
-    """
-    zeros = torch.zeros(B, model.latent_dim).to(device)
-    log_prior = utils.log_normal(z, zeros, zeros)
-    _, x_logits = model.decode(z)
-    x_logits = x_logits.detach()
-    log_likelihood = log_likelihood_fn(x_logits, data)
+  if log_likelihood_fn == 'bernoulli':
+    def log_f_i(z, data, t, log_likelihood_fn=utils.log_bernoulli):
+      """Unnormalized density for intermediate distribution `f_i`:
+          f_i = p(z)^(1-t) p(x,z)^(t) = p(z) p(x|z)^t
+      =>  log f_i = log p(z) + t * log p(x|z)
+      """
+      zeros = torch.zeros(B, model.latent_dim).to(device)
+      log_prior = utils.log_normal(z, zeros, zeros)
+      #_, x_logits = model.decode(z)
+      #x_logits = x_logits.detach()
+      log_likelihood = log_likelihood_fn(x_logits, data)
+      return log_prior + log_likelihood.mul_(t)
 
-    return log_prior + log_likelihood.mul_(t)
+  elif log_likelihood_fn == 'normal':
+    def log_f_i(z, data, t, log_likelihood_fn=utils.log_normal):
+      zeros = torch.zeros(B, model.latent_dim).to(device)
+      log_prior = utils.log_normal(z, zeros, zeros)
+      _, x_mus, x_logvars = model.decode._forward_x(z)
+      #x_mus = x_mus.detach()
+      #x_logvars = x_logvars.detach()
+      log_likelihood = log_likelihood_fn(data, x_mus, x_logvars)
+      return log_prior + log_likelihood.mul_(t)
+
+  else:
+    raise NotImplementedError
 
   logws = []
-  for i, (batch, post_z) in enumerate(loader):
+  #for i, (batch, post_z) in enumerate(loader):
+  for i, (batch, post_z) in tqdm(enumerate(loader), total=len(loader)):
     B = batch.size(0) * n_sample
     batch = batch.to(device)
     batch = utils.safe_repeat(batch, n_sample)
 
     with torch.no_grad():
-      epsilon = torch.ones(B).to(device).mul_(0.01)
+      epsilon = torch.ones(B).to(device).mul_(_epsilon)
       accept_hist = torch.zeros(B).to(device)
       logw = torch.zeros(B).to(device)
 
@@ -69,6 +85,7 @@ def ais_trajectory(model,
       log_int_1 = log_f_i(current_z, batch, t0)
       log_int_2 = log_f_i(current_z, batch, t1)
       logw += log_int_2 - log_int_1
+      #print(log_int_2 - log_int_1)
 
       # resample velocity
       current_v = torch.randn(current_z.size()).to(device)
@@ -100,11 +117,12 @@ def ais_trajectory(model,
           U, K=normalized_kinetic,
           device=device,
           )
+      #print(z, v)
 
     logw = utils.log_mean_exp(logw.view(n_sample, -1).transpose(0, 1)).detach()
     if not forward:
       logw = -logw
-    logws.append(logw.data)
-    print('Last batch stats %.4f' % (logw.mean().cpu().data.numpy()))
+    logws.append(logw)
+    #print('Last batch stats %.4f' % (logw.mean().cpu().numpy()))
 
   return logws
