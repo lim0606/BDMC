@@ -14,7 +14,7 @@ def ais_trajectory(model,
                    forward=True,
                    schedule=np.linspace(0., 1., 500),
                    n_sample=100,
-                   log_likelihood_fn='bernoulli',
+                   log_likelihood_fn='bernoulli-vae',
                    device=torch.device("cpu"),
                    _epsilon=0.01,
                    ):
@@ -34,7 +34,7 @@ def ais_trajectory(model,
       log importance weights for a single batch of data
   """
 
-  if log_likelihood_fn == 'bernoulli':
+  if log_likelihood_fn == 'bernoulli-vae':
     def log_f_i(z, data, t, log_likelihood_fn=utils.log_bernoulli):
       """Unnormalized density for intermediate distribution `f_i`:
           f_i = p(z)^(1-t) p(x,z)^(t) = p(z) p(x|z)^t
@@ -42,12 +42,22 @@ def ais_trajectory(model,
       """
       zeros = torch.zeros(B, model.latent_dim).to(device)
       log_prior = utils.log_normal(z, zeros, zeros)
-      #_, x_logits = model.decode(z)
+      _, x_logits = model.decode(z)
       #x_logits = x_logits.detach()
       log_likelihood = log_likelihood_fn(x_logits, data)
       return log_prior + log_likelihood.mul_(t)
 
-  elif log_likelihood_fn == 'normal':
+  elif log_likelihood_fn == 'normal-vae':
+    def log_f_i(z, data, t, log_likelihood_fn=utils.log_normal):
+      zeros = torch.zeros(B, model.latent_dim).to(device)
+      log_prior = utils.log_normal(z, zeros, zeros)
+      _, x_mus, x_logvars = model.decode(z)
+      #x_mus = x_mus.detach()
+      #x_logvars = x_logvars.detach()
+      log_likelihood = log_likelihood_fn(data, x_mus, x_logvars)
+      return log_prior + log_likelihood.mul_(t)
+
+  elif log_likelihood_fn == 'normal-fit':
     def log_f_i(z, data, t, log_likelihood_fn=utils.log_normal):
       zeros = torch.zeros(B, model.latent_dim).to(device)
       log_prior = utils.log_normal(z, zeros, zeros)
